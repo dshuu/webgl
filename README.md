@@ -4,4 +4,7 @@ learning webgl
 
 
 ## step01
-- hello world
+- hello world:triangle 
+
+## step2 
+- multi graphic
