@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <script src="../utils/index.js"></script>
+    <script>
+      var vertexShaderSource = /*glsl */ `#version 300 es
+        in vec4 a_position;
+        void main() {
+            gl_Position = a_position;
+        }
+        `
+      var fragmentShaderSource = `#version 300 es
+        precision highp float;
+        out vec4 outColor;
+        void main() {
+            outColor = vec4(1, 0, 0.5, 1);
+        }
+`
+    </script>
+    <script type="module">
+      // 初始化获取webgl2上下文
+      const canvas = document.querySelector("#stage")
+      const gl = canvas.getContext("webgl2")
+      if (!gl) {
+        console.warn("not support webgl2")
+      }
+      //初始化 vertex/fragment shader
+      const vertexShader = createShader(
+        gl,
+        gl.VERTEX_SHADER,
+        vertexShaderSource
+      )
+      const fragmentShader = createShader(
+        gl,
+        gl.FRAGMENT_SHADER,
+        fragmentShaderSource
+      )
+      //初始化program webgl应用程序的主体
+      const program = createProgram(gl, vertexShader, fragmentShader)
+
+      //定点着色器中用到 a_position属性，所以需要找到它的位置
+      const positionAttributeLocation = gl.getAttribLocation(
+        program,
+        "a_position"
+      )
+
+      //CPU准备buffer等数据给GPU，属性则是从缓冲中获取数据
+      const positionBuffer = gl.createBuffer()
+      //绑定缓冲区
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+      //通过绑定点把数据放到缓冲区
+      const positions = [0, 0, 0, 0.5, 0.7, 0]
+      //将数组数据拷贝到GPU上的positionBuffer,最后一个参数告诉WEBGL怎么使用数据
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array(positions),
+        gl.STATIC_DRAW
+      )
+      //数据放进缓冲区后，需要告诉属性怎么取数据
+      //属性的状态收集到顶点数组对象VAO
+      const vao = gl.createVertexArray()
+      gl.bindVertexArray(vao)
+      gl.enableVertexAttribArray(positionAttributeLocation)
+      // Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+      const size = 2,
+        type = gl.FLOAT,
+        normalize = false,
+        stride = 0,
+        offset = 0
+      gl.vertexAttribPointer(
+        positionAttributeLocation,
+        size,
+        type,
+        normalize,
+        stride,
+        offset
+      )
+
+      // clip space
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+
+      //clear canvas
+      gl.clearColor(0, 0, 0, 0)
+      gl.clear(gl.COLOR_BUFFER_BIT)
+
+      gl.useProgram(program)
+      //使用哪个缓冲区，并怎么取数据给到属性
+      gl.bindVertexArray(vao)
+
+      //告诉WEBGL怎么运行
+      const primitiveType = gl.TRIANGLES
+      gl.drawArrays(primitiveType, 0, 3)
+    </script>
+  </body>
+</html>
