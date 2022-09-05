@@ -37,34 +37,12 @@
     <script src="../utils/index.js"></script>
     <script>
       const vertexShaderSource = `#version 300 es
-        // an attribute is an input (in) to a vertex shader.
-        // It will receive data from a buffer
         in vec2 a_position;
-
-        // Used to pass in the resolution of the canvas
-        uniform vec2 u_resolution;
-        // uniform vec2 u_translation;
-        // uniform vec2 u_rotation;
-        // uniform vec2 u_scale;
         uniform mat3 u_matrix;
-        // all shaders have a main function
         void main() {
-            // vec2 translationPosition = a_position+u_translation;
-            // vec2 scalePosition = translationPosition*u_scale;
-            // vec2 rotatedPosition = vec2(
-            // scalePosition.x * u_rotation.y + scalePosition.y * u_rotation.x,
-            // scalePosition.y * u_rotation.y - scalePosition.x * u_rotation.x);
-            // convert the position from pixels to 0.0 to 1.0
-            vec2 position = (u_matrix * vec3(a_position, 1)).xy;
-            vec2 zeroToOne = position / u_resolution;
-            // convert from 0->1 to 0->2
-            vec2 zeroToTwo = zeroToOne * 2.0;
-            // convert from 0->2 to -1->+1 (clipspace)
-            vec2 clipSpace = zeroToTwo - 1.0;
-            gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+           gl_Position = vec4((u_matrix*vec3(a_position,1)).xy,0,1);
         }
         `
-
       const fragmentShaderSource = `#version 300 es
 
 precision highp float;
@@ -124,6 +102,9 @@ void main() {
             b20 * a02 + b21 * a12 + b22 * a22,
           ]
         },
+        projection: function (width, height) {
+          return [2 / width, 0, 0, 0, -2 / height, 0, -1, 1, 1]
+        },
       }
     </script>
     <script>
@@ -142,10 +123,10 @@ void main() {
           program,
           'a_position'
         )
-        const resolutionUniformLocation = gl.getUniformLocation(
-          program,
-          'u_resolution'
-        )
+        // const resolutionUniformLocation = gl.getUniformLocation(
+        //   program,
+        //   'u_resolution'
+        // )
         // const translationLocation = gl.getUniformLocation(
         //   program,
         //   'u_translation'
@@ -227,14 +208,10 @@ void main() {
           gl.clear(gl.COLOR_BUFFER_BIT, gl.DEPTH_BUFFER_BIT)
           gl.useProgram(program)
           gl.bindVertexArray(vao)
-          gl.uniform2f(
-            resolutionUniformLocation,
-            gl.canvas.width,
-            gl.canvas.height
+          const projectionMatrix = m3.projection(
+            gl.canvas.clientWidth,
+            gl.canvas.clientHeight
           )
-          // gl.uniform2fv(translationLocation, translation)
-          // gl.uniform2fv(rotationLocation, rotation)
-          // gl.uniform2fv(scaleLocation, scale)
           const translationMatrix = m3.translation(
             translation[0],
             translation[1]
@@ -243,8 +220,9 @@ void main() {
           const scaleMatrix = m3.scaling(scale[0], scale[1])
 
           // Multiply the matrices.
-          let matrix = m3.multiply(scaleMatrix, rotationMatrix)
-          matrix = m3.multiply(matrix, translationMatrix)
+          let matrix = m3.multiply(projectionMatrix, translationMatrix)
+          matrix = m3.multiply(matrix, rotationMatrix)
+          matrix = m3.multiply(matrix, scaleMatrix)
           gl.uniformMatrix3fv(matrixLocation, false, matrix)
           gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
           gl.uniform4fv(colorLocation, color)
