@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>多个物体的二维移动</title>
+    <script src="../math/gl-matrix-min.js"></script>
+    <script src="https://webgl2fundamentals.org/webgl/resources/jquery-1.7.1.min.js"></script>
+    <script src="https://webgl2fundamentals.org/webgl/resources/jquery-ui-1.8.16.custom.min.js"></script>
+    <script src="https://webgl2fundamentals.org/webgl/resources/jquery.mousecapture.js"></script>
+    <script src="https://webgl2fundamentals.org/webgl/resources/jquery-gman-circle.js"></script>
+    <script src="https://webgl2fundamentals.org/webgl/resources/webgl-lessons-ui.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://webgl2fundamentals.org/webgl/resources/webgl-tutorials.css"
+    />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <div id="uiContainer">
+      <div id="ui">
+        <div id="x"></div>
+        <div id="y"></div>
+        <div id="scaleX"></div>
+        <div id="scaleY"></div>
+        <div id="rotation"></div>
+      </div>
+    </div>
+    <script src="./index.js"></script>
+    <script>
+      var vertexShaderSource = /*glsl */ `#version 300 es
+        in vec4 a_position;
+        uniform vec2 u_resolution;
+        uniform vec2 u_translation;
+        uniform vec2 u_rotation;
+        uniform vec2 u_scale;
+        void main() {
+          vec2 scaledPosition = a_position.xy * u_scale;
+          vec2 rotatedPosition = vec2(
+            scaledPosition.x * u_rotation.y + scaledPosition.y * u_rotation.x,
+            scaledPosition.y * u_rotation.y - scaledPosition.x * u_rotation.x);
+            vec2 position = rotatedPosition+u_translation;
+            vec2 zeroToOne = position / u_resolution;
+            vec2 zeroToTwo = zeroToOne * 2.0;
+            vec2 clipSpace = zeroToTwo - 1.0;
+            // gl_Position =  vec4(clipSpace, 0, 1);
+            gl_Position =  vec4(clipSpace * vec2(1, -1), 0, 1);
+        }
+      `
+      var fragmentShaderSource = `#version 300 es
+        precision highp float;
+        // uniform vec4 u_color;
+        uniform float u_time;
+        out vec4 outColor;
+        void main() {
+            // outColor = u_color;
+            outColor = vec4(sin(u_time), cos(u_time), sin(u_time), 1);
+        }
+      `
+      var fragmentShaderSource1 = `#version 300 es
+        precision highp float;
+        // uniform vec4 u_color;
+        uniform float u_time;
+        out vec4 outColor;
+        void main() {
+            // outColor = vec4(u_color.xyz,sin(u_time));
+            outColor = vec4(sin(u_time), cos(u_time), sin(u_time), 0.3);
+        }
+      `
+    </script>
+    <script type="module">
+      // 初始化获取webgl2上下文
+      const canvas = document.querySelector('#stage')
+      const gl = canvas.getContext('webgl2')
+      if (!gl) {
+        console.warn('not support webgl2')
+      }
+      // gl.canvas.width = 600
+      // gl.canvas.height = 300
+      const program = new Program(gl, {
+        vertex: vertexShaderSource,
+        fragment: fragmentShaderSource,
+        uniforms: {
+          u_time: { value: 0 },
+          u_resolution: [gl.canvas.width, gl.canvas.height],
+          u_translation: {
+            value: [0, 0],
+          },
+          u_rotation: {
+            value: [0, 0],
+          },
+          u_scale: {
+            value: [1, 1],
+          },
+        },
+      })
+      const program1 = new Program(gl, {
+        vertex: vertexShaderSource,
+        fragment: fragmentShaderSource1,
+        uniforms: {
+          u_time: { value: 0 },
+          u_resolution: {
+            value: [gl.canvas.width, gl.canvas.height],
+          },
+          u_translation: {
+            value: [0, 0],
+          },
+          u_rotation: {
+            value: [0, 0],
+          },
+          u_scale: {
+            value: [1, 1],
+          },
+        },
+      })
+      const objectsToDraw = [
+        {
+          programInfo: program,
+          geometry: new Geometry(
+            gl,
+            {
+              attributes: {
+                a_position: [40, 20, 40, 50, 80, 80],
+              },
+            },
+            program
+          ),
+        },
+        {
+          programInfo: program1,
+          geometry: new Geometry(
+            gl,
+            {
+              attributes: {
+                a_position: [0, 0, 50, 0, 0, 50],
+              },
+            },
+            program1
+          ),
+        },
+      ]
+      const translation = [0, 0]
+      const rotation = [0, 1]
+      const scale = [1, 1]
+      // Setup a ui.
+      webglLessonsUI.setupSlider('#x', {
+        slide: updatePosition(0),
+        max: gl.canvas.width,
+      })
+      webglLessonsUI.setupSlider('#y', {
+        slide: updatePosition(1),
+        max: gl.canvas.height,
+      })
+      $('#rotation').gmanUnitCircle({
+        width: 200,
+        height: 200,
+        value: 0,
+        slide: function (e, u) {
+          rotation[0] = u.x
+          rotation[1] = u.y
+        },
+      })
+      webglLessonsUI.setupSlider('#scaleX', {
+        value: scale[0],
+        slide: updateScale(0),
+        min: -5,
+        max: 5,
+        step: 0.01,
+        precision: 2,
+      })
+      webglLessonsUI.setupSlider('#scaleY', {
+        value: scale[1],
+        slide: updateScale(1),
+        min: -5,
+        max: 5,
+        step: 0.01,
+        precision: 2,
+      })
+      function updatePosition(index) {
+        return function (event, ui) {
+          translation[index] = ui.value
+        }
+      }
+      function updateScale(index) {
+        return function (event, ui) {
+          scale[index] = ui.value
+        }
+      }
+      const drawFn = () => {
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+        gl.clearColor(0, 0, 0, 0)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        objectsToDraw.forEach((i) => {
+          i.programInfo.uniforms.u_time.value += 0.006
+          i.programInfo.uniforms.u_resolution.value = [300, 150]
+          i.programInfo.uniforms.u_translation.value = translation
+          i.programInfo.uniforms.u_rotation.value = rotation
+          i.programInfo.uniforms.u_scale.value = scale
+          i.geometry.render()
+        })
+        requestAnimationFrame(drawFn)
+      }
+      drawFn()
+    </script>
+  </body>
+</html>

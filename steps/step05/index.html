@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>绘制多个物体</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <script src="../utils/index.js"></script>
+    <script>
+      var vertexShaderSource = /*glsl */ `#version 300 es
+        in vec4 a_position;
+        void main() {
+            gl_Position = a_position;
+        }
+      `
+      var fragmentShaderSource = `#version 300 es
+        precision highp float;
+        // uniform vec4 u_color;
+        uniform float u_time;
+        out vec4 outColor;
+        void main() {
+            // outColor = u_color;
+            outColor = vec4(1, 0, sin(u_time), 1);
+        }
+      `
+      var fragmentShaderSource1 = `#version 300 es
+        precision highp float;
+        uniform vec4 u_color;
+        uniform float u_time;
+        out vec4 outColor;
+        void main() {
+            outColor = vec4(u_color.xyz,sin(u_time));
+        }
+      `
+    </script>
+    <script type="module">
+      // 初始化获取webgl2上下文
+      const canvas = document.querySelector('#stage')
+      const gl = canvas.getContext('webgl2')
+      if (!gl) {
+        console.warn('not support webgl2')
+      }
+      // renderList
+      const objectsToDraw = [
+        {
+          programInfo: new NProgram(
+            gl,
+            vertexShaderSource,
+            fragmentShaderSource
+          ),
+          attribs: ['a_position'],
+          position: [0, 0, 0, 0.5, 0.7, 0],
+          uniforms: {
+            u_time: { value: 0 },
+            // uColor: { value: new Color(0.3, 0.2, 0.5) },
+          },
+        },
+        {
+          programInfo: new NProgram(
+            gl,
+            vertexShaderSource,
+            fragmentShaderSource
+          ),
+          attribs: ['a_position'],
+          position: [0, 0, -0.5, 0, -0.5, -0.5],
+          uniforms: {
+            u_time: { value: 0 },
+            // uColor: { value: new Color(0.3, 0.2, 0.5) },
+          },
+        },
+        {
+          programInfo: new NProgram(
+            gl,
+            vertexShaderSource,
+            fragmentShaderSource
+          ),
+          attribs: ['a_position'],
+          position: [0, 0, -0.5, 0.1, -0.5, 0.2],
+          uniforms: {
+            u_time: { value: 0 },
+            // uColor: { value: new Color(0.3, 0.2, 0.5) },
+          },
+        },
+      ]
+      // clip space
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+      gl.clearColor(0, 0, 0, 0)
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      //clear canvas
+      // gl.clearColor(0, 0, 0, 0)
+      // gl.clear(gl.COLOR_BUFFER_BIT)
+
+      // gl.useProgram(program)
+
+      //使用哪个缓冲区，并怎么取数据给到属性
+      // gl.bindVertexArray(vao)
+      //通过绑定点把数据放到缓冲区
+
+      const primitiveType = gl.TRIANGLES
+      objectsToDraw.forEach((i) => {
+        const positionAttributeLocation = gl.getAttribLocation(
+          i.programInfo,
+          'a_position'
+        )
+        const positionBuffer = gl.createBuffer()
+        //绑定缓冲区
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+        gl.bufferData(
+          gl.ARRAY_BUFFER,
+          new Float32Array(i.position),
+          gl.STATIC_DRAW
+        )
+        const vao = gl.createVertexArray()
+        gl.bindVertexArray(vao)
+        //先设置顶点数据a_position
+        gl.enableVertexAttribArray(positionAttributeLocation)
+
+        const size = 2,
+          type = gl.FLOAT,
+          normalize = false,
+          stride = 0,
+          offset = 0
+        gl.vertexAttribPointer(
+          positionAttributeLocation,
+          size,
+          type,
+          normalize,
+          stride,
+          offset
+        )
+        //这里处理uniforms的数据
+        let numUniforms = gl.getProgramParameter(
+          i.programInfo,
+          gl.ACTIVE_UNIFORMS
+        )
+        for (let ii = 0; ii < numUniforms; ii++) {
+          let uniformIns = gl.getActiveUniform(i.programInfo, ii)
+          const uniformLocation = gl.getUniformLocation(
+            i.programInfo,
+            uniformIns.name
+          )
+          setUniform(
+            gl,
+            uniformIns.type,
+            uniformLocation,
+            i.uniforms[uniformIns.name].value
+          )
+        }
+        gl.useProgram(i.programInfo)
+        gl.bindVertexArray(vao)
+        //告诉WEBGL怎么运行
+        gl.drawArrays(primitiveType, 0, 3)
+      })
+    </script>
+  </body>
+</html>
+
+<!-- 这样的问题是什么 -->
+<!-- 1.attributes还没有放进去，可以通过Geometry来提供
+2.positionBuffer只需要创立一次
+3.uniformLocation不需要重复处理
+4.没有实现树结构 -->

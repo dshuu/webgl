@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>绘制多个物体</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <script src="./index.js"></script>
+    <script>
+      var vertexShaderSource = /*glsl */ `#version 300 es
+        in vec4 a_position;
+        void main() {
+            gl_Position = a_position;
+        }
+      `
+      var fragmentShaderSource = `#version 300 es
+        precision highp float;
+        // uniform vec4 u_color;
+        uniform float u_time;
+        out vec4 outColor;
+        void main() {
+            // outColor = u_color;
+            outColor = vec4(sin(u_time), cos(u_time), sin(u_time), 1);
+        }
+      `
+      var fragmentShaderSource1 = `#version 300 es
+        precision highp float;
+        uniform vec4 u_color;
+        uniform float u_time;
+        out vec4 outColor;
+        void main() {
+            outColor = vec4(u_color.xyz,sin(u_time));
+        }
+      `
+    </script>
+    <script type="module">
+      // 初始化获取webgl2上下文
+      const canvas = document.querySelector('#stage')
+      const gl = canvas.getContext('webgl2')
+      if (!gl) {
+        console.warn('not support webgl2')
+      }
+      // renderList
+      const program = new Program(gl, {
+        vertex: vertexShaderSource,
+        fragment: fragmentShaderSource,
+        uniforms: {
+          u_time: { value: 0 },
+        },
+      })
+      const objectsToDraw = [
+        {
+          programInfo: program,
+          geometry: new Geometry(
+            gl,
+            {
+              attributes: {
+                a_position: [0, 0, -0.5, 0, -0.5, -0.5],
+              },
+            },
+            program
+          ),
+        },
+        {
+          programInfo: program,
+          geometry: new Geometry(
+            gl,
+            {
+              attributes: {
+                a_position: [0, 0, 0, 0.5, 0.7, 0],
+              },
+            },
+            program
+          ),
+        },
+      ]
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
+        gl.clearColor(0, 0, 0, 0)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+      const drawFn = () => {
+     
+        objectsToDraw.forEach((i) => {
+          i.programInfo.uniforms.u_time.value += 0.006
+          i.geometry.render()
+        })
+
+        requestAnimationFrame(drawFn)
+      }
+      drawFn()
+    </script>
+  </body>
+</html>
