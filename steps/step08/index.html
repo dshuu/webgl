@@ -38,14 +38,15 @@
     <script>
       var vertexShaderSource = /*glsl */ `#version 300 es
         in vec2 a_position;
-        uniform vec2 u_resolution;
+        // uniform vec2 u_resolution;
         uniform mat3 u_matrix;
         void main() {
-            vec2 position = (u_matrix * vec3(a_position, 1)).xy;
-            vec2 zeroToOne = position / u_resolution;
-            vec2 zeroToTwo = zeroToOne * 2.0;
-            vec2 clipSpace = zeroToTwo - 1.0;
-            gl_Position =  vec4(clipSpace * vec2(1, -1), 0, 1);
+            // vec2 position = (u_matrix * vec3(a_position, 1)).xy;
+            // vec2 zeroToOne = position / u_resolution;
+            // vec2 zeroToTwo = zeroToOne * 2.0;
+            // vec2 clipSpace = zeroToTwo - 1.0;
+            // gl_Position =  vec4(clipSpace * vec2(1, -1), 0, 1);
+            gl_Position = vec4((u_matrix * vec3(a_position, 1)).xy, 0, 1);
         }
       `
       var fragmentShaderSource = `#version 300 es
@@ -176,18 +177,32 @@
           scale[index] = ui.value
         }
       }
+      function projectionFn() {
+        const u_matrix = glMatrix.mat3.create()
+        glMatrix.mat3.multiply(u_matrix, u_matrix, [
+          2 / gl.canvas.width,
+          0,
+          0,
+          0,
+          -2 / gl.canvas.height,
+          0,
+          -1,
+          1,
+          1,
+        ])
+        glMatrix.mat3.translate(u_matrix, u_matrix, translation)
+        glMatrix.mat3.rotate(u_matrix, u_matrix, rotationInRadians)
+        glMatrix.mat3.scale(u_matrix, u_matrix, scale)
+        return u_matrix
+      }
       const drawFn = () => {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height)
         gl.clearColor(0, 0, 0, 0)
         gl.clear(gl.COLOR_BUFFER_BIT)
         objectsToDraw.forEach((i) => {
-          const u_matrix = glMatrix.mat3.create()
-          glMatrix.mat3.translate(u_matrix, u_matrix, translation)
-          glMatrix.mat3.rotate(u_matrix, u_matrix, rotationInRadians)
-          glMatrix.mat3.scale(u_matrix, u_matrix, scale)
           i.programInfo.uniforms.u_time.value += 0.006
           i.programInfo.uniforms.u_resolution.value = [300, 150]
-          i.programInfo.uniforms.u_matrix.value = u_matrix
+          i.programInfo.uniforms.u_matrix.value = projectionFn()
           i.geometry.render()
         })
         requestAnimationFrame(drawFn)
